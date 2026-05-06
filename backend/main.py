@@ -1,15 +1,34 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
 
-app.mount("/home", StaticFiles(directory="frontend", html=True), name="static")
+
 
 @app.get("/getip")
 def getip(request:Request):
     ip = request.client.host
     return {"ip": ip}
 
+
+connections = []
+
+@app.websocket("/ws")
+async def magic_ws(ws: WebSocket):
+    await ws.accept()
+    connections.append(ws)
+
+    try:
+        while True:
+            data = await ws.receive_json()
+            for client in connections:
+                await client.send_json(data)
+    
+    except WebSocketDisconnect:
+        connections.remove(ws)
+
+
+app.mount("/home", StaticFiles(directory="frontend", html=True), name="static")
 
 
 if __name__ == "__main__":
